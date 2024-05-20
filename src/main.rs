@@ -1,13 +1,19 @@
-use std::{fs, os::fd::AsRawFd};
+use std::{fs, os::fd::AsRawFd, process::exit};
 
 use nix::{
     libc::AT_FDCWD,
     sys::fanotify::{
         EventFFlags, Fanotify, FanotifyResponse, InitFlags, MarkFlags, MaskFlags, Response,
     },
+    unistd,
 };
 
 fn main() {
+    if !unistd::getuid().is_root() {
+        println!("Requires root privileges");
+        exit(1);
+    }
+
     let notify = Fanotify::init(
         InitFlags::FAN_CLOEXEC | InitFlags::FAN_CLASS_CONTENT, // | InitFlags::FAN_NONBLOCK,
         EventFFlags::O_RDONLY | EventFFlags::O_LARGEFILE,
