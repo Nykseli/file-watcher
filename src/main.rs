@@ -1,3 +1,5 @@
+use std::{fs, os::fd::AsRawFd};
+
 use nix::{
     libc::AT_FDCWD,
     sys::fanotify::{
@@ -23,6 +25,7 @@ fn main() {
 
     loop {
         for event in notify.read_events().unwrap().iter() {
+            print!("Event: ");
             if event.mask().contains(MaskFlags::FAN_OPEN_PERM) {
                 notify
                     .write_response(FanotifyResponse::new(
@@ -30,8 +33,21 @@ fn main() {
                         Response::FAN_ALLOW,
                     ))
                     .unwrap();
+
+                print!("OPEN ");
+            } else if event.mask().contains(MaskFlags::FAN_CLOSE_WRITE) {
+                print!("CLOSE_WRITE ");
             }
-            println!("{event:#?}");
+
+            let fd_path = format!("/proc/self/fd/{}", event.fd().unwrap().as_raw_fd());
+            let file_name = fs::read_link(fd_path).unwrap();
+
+            print!("file '{}' ", file_name.to_str().unwrap());
+
+            let exe_path = format!("/proc/{}/exe", event.pid());
+            let exe_name = fs::read_link(exe_path).unwrap();
+
+            println!("from '{}'", exe_name.to_str().unwrap());
         }
     }
 }
